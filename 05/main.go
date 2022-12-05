@@ -3,117 +3,124 @@ package main
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 
 	"github.com/matsest/advent2022/utils"
 )
 
-func main() {
-	lines, _ := utils.ReadLines("input.txt")
-
-	// Find out how many arrays to initialize based on 4 characters
+// Reads stacks from input
+func getStacks(lines []string) [][]string {
+	// Find out how many stacks to initialize based on 4 characters length
 	numbersLength := (len(lines[0]) + 1) / 4
-	//fmt.Println(numbersLength)
 	arrs := make([][]string, numbersLength)
-	//fmt.Println(arrs)
 
 	for _, v := range lines {
-		// Dirty match to find the first non-interesting line..
-		toStop, _ := regexp.Match(`^(\s+(\d\s+)+)\d`, []byte(v))
-		if toStop {
+		// Lazy match to stop at the first non-interesting line..
+		stop, _ := regexp.Match(`^(\s+(\d\s+)+)\d`, []byte(v))
+		if stop {
 			break
 		}
 
-		// Find all letters - quick and dirty based on 4 characters per
+		// Find all letters - assume 4 character length
 		tmp := []string{}
 		for i := 1; i < len(v); i += 4 {
 			current := string(v[i])
 			tmp = append(tmp, current)
-
 		}
+
 		// Flip index to add to columns instead of rows
-		//fmt.Println("tmp: ", tmp)
 		for k := range tmp {
-			//fmt.Println("tmp[k]:", tmp[k])
 			if tmp[k] != " " {
 				arrs[k] = append(arrs[k], tmp[k])
 			}
 		}
 	}
+	return arrs
+}
 
-	fmt.Println("initial arrs: ", arrs)
-
-	// Find instructions
-	//fmt.Println("MATCHES:")
-	var matches [][]int
+// Reads instructions from input
+func getInstructions(lines []string) (instructions [][]int) {
 	for _, v := range lines {
+		// Find lines matching instruction pattern
 		re := regexp.MustCompile(`^move \d{1,2} from \d to \d$`)
 		match := re.MatchString(v)
 		if match {
-			//fmt.Printf("%q\n", re.FindAll([]byte(v), -1))
+			// Find integers
 			re := regexp.MustCompile(`\d{1,2}`)
-			nums := re.FindAllString(v, -1)
-			count, _ := strconv.Atoi(nums[0])
-			fromIndex, _ := strconv.Atoi(nums[1])
-			fromIndex -= 1
-			toIndex, _ := strconv.Atoi(nums[2])
-			toIndex -= 1
-			//fmt.Println(count, fromIndex, toIndex)
+			numsString := re.FindAllString(v, -1)
+			nums, _ := utils.SliceAtoi(numsString)
+			count := nums[0]
+
+			// Remove 1 due to 1-indexing in input
+			fromIndex := nums[1] - 1
+			toIndex := nums[2] - 1
+
+			// Add to instructions
 			current := []int{count, fromIndex, toIndex}
-			matches = append(matches, current)
+			instructions = append(instructions, current)
 		}
 	}
-	//fmt.Println(matches)
+	return instructions
+}
 
-	// Final output
-	//fmt.Println("initial arr: ", arrs)
-	//for i := range arrs {
-	//	fmt.Println(arrs[i])
-	//}
+// Helper function to copy 2D slice
+func clone(arr [][]string) (res [][]string) {
+	res = make([][]string, len(arr))
+	for i := range arr {
+		res[i] = append([]string{}, arr[i]...)
+	}
+	return
+}
 
-	//fmt.Println("beginning altering arr")
-	for _, match := range matches {
+func doInstructions(stacks [][]string, instructions [][]int, reverse bool) (ans [][]string) {
+	ans = clone(stacks)
+
+	for _, match := range instructions {
 		count := match[0]
 		from := match[1]
 		to := match[2]
 
-		//fmt.Println("moving value ", arrs[from][0:count], "from", from, "to ", to, " (count ", count, ")")
-
-		// pop from front of from
-		tmpFrom := make([]string, len(arrs[from]))
-		copy(tmpFrom, arrs[from])
+		// Pop from the FROM stack
+		tmpFrom := make([]string, len(ans[from]))
+		copy(tmpFrom, ans[from])
 		front, _ := tmpFrom[:count], tmpFrom[count:]
-		//fmt.Println("front, prev:", front, prev)
 
-		// Reverse front stack
-		// comment this out for part 2
-		for i, j := 0, len(front)-1; i < j; i, j = i+1, j-1 {
-			front[i], front[j] = front[j], front[i]
+		// Reverse the front crates before adding
+		if reverse {
+			for i, j := 0, len(front)-1; i < j; i, j = i+1, j-1 {
+				front[i], front[j] = front[j], front[i]
+			}
 		}
 
-		// Add to front of to
-		arrs[to] = append(front, arrs[to]...)
+		// Add front crates to TO stack
+		ans[to] = append(front, ans[to]...)
 
-		// Remove from back
-		arrs[from] = arrs[from][count:]
-
-		//fmt.Println("changed arrs: ", arrs)
-		//for i := range arrs {
-		//	fmt.Println(arrs[i])
-		//}
-
+		// Clean up the FROM stack
+		ans[from] = ans[from][count:]
 	}
+	return ans
+}
 
-	// Final output
-	fmt.Println("arrs: ", arrs)
-	//for i := range arrs {
-	//	fmt.Println(arrs[i])
-	//}
-
-	// Ans
-	ans := ""
-	for i := range arrs {
-		ans += (arrs[i][0])
+func getTopCrates(stacks [][]string) (ans string) {
+	for i := range stacks {
+		ans += (stacks[i][0])
 	}
-	fmt.Println("ANSWER", ans)
+	return ans
+}
+
+func main() {
+	lines, _ := utils.ReadLines("input.txt")
+
+	// Find stacks from input
+	stacks := getStacks(lines)
+
+	// Find instructions from input
+	instructions := getInstructions(lines)
+
+	// Part 1
+	arrs1 := doInstructions(stacks, instructions, true)
+	fmt.Println(getTopCrates(arrs1))
+
+	// Part 2
+	arrs2 := doInstructions(stacks, instructions, false)
+	fmt.Println(getTopCrates(arrs2))
 }
